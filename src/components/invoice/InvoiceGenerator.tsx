@@ -16,9 +16,10 @@ interface InvoiceItem {
 interface InvoiceGeneratorProps {
   selectedProducts: Product[];
   onClear: () => void;
+  onUpdateStock: (productId: string, quantity: number) => void;
 }
 
-export default function InvoiceGenerator({ selectedProducts, onClear }: InvoiceGeneratorProps) {
+export default function InvoiceGenerator({ selectedProducts, onClear, onUpdateStock }: InvoiceGeneratorProps) {
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>(
     selectedProducts.map(product => ({ product, quantity: 1 }))
   );
@@ -27,6 +28,17 @@ export default function InvoiceGenerator({ selectedProducts, onClear }: InvoiceG
     email: '',
     address: '',
     phone: ''
+  });
+  const [companyDetails, setCompanyDetails] = useState({
+    name: 'BillCraft Pro',
+    address: 'Your Business Address',
+    phone: '+91 98765 43210',
+    email: 'contact@billcraft.com'
+  });
+  const [invoiceSettings, setInvoiceSettings] = useState({
+    taxRate: 18,
+    currency: '₹',
+    invoicePrefix: 'INV'
   });
 
   const updateQuantity = (productId: string, change: number) => {
@@ -44,44 +56,68 @@ export default function InvoiceGenerator({ selectedProducts, onClear }: InvoiceG
   };
 
   const subtotal = invoiceItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
-  const tax = subtotal * 0.18; // 18% GST
+  const tax = subtotal * (invoiceSettings.taxRate / 100);
   const total = subtotal + tax;
 
+  const generateInvoiceNumber = () => {
+    const timestamp = Date.now();
+    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    return `${invoiceSettings.invoicePrefix}-${timestamp}-${random}`;
+  };
+
   const generatePDF = () => {
+    const invoiceNumber = generateInvoiceNumber();
     const doc = new jsPDF();
     
     // Header
     doc.setFontSize(20);
     doc.text('INVOICE', 20, 20);
     doc.setFontSize(12);
-    doc.text('BillCraft Pro', 20, 35);
-    doc.text(`Invoice #: INV-${Date.now()}`, 20, 45);
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, 55);
+    doc.text(companyDetails.name, 20, 35);
+    doc.text(companyDetails.address, 20, 45);
+    doc.text(companyDetails.phone, 20, 55);
+    doc.text(companyDetails.email, 20, 65);
+    
+    doc.text(`Invoice #: ${invoiceNumber}`, 150, 35);
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, 150, 45);
 
     // Customer Details
-    doc.text('Bill To:', 20, 75);
-    doc.text(customerDetails.name, 20, 85);
-    doc.text(customerDetails.email, 20, 95);
-    doc.text(customerDetails.address, 20, 105);
+    doc.text('Bill To:', 20, 85);
+    doc.text(customerDetails.name, 20, 95);
+    doc.text(customerDetails.email, 20, 105);
+    doc.text(customerDetails.address, 20, 115);
+    doc.text(customerDetails.phone, 20, 125);
+
+    // Items Header
+    let yPos = 145;
+    doc.text('Items:', 20, yPos);
+    doc.text('Qty', 120, yPos);
+    doc.text('Rate', 140, yPos);
+    doc.text('Amount', 170, yPos);
+    yPos += 10;
 
     // Items
-    let yPos = 125;
-    doc.text('Items:', 20, yPos);
-    yPos += 15;
-
     invoiceItems.forEach(item => {
-      doc.text(`${item.product.name} x ${item.quantity}`, 20, yPos);
-      doc.text(`₹${(item.product.price * item.quantity).toFixed(2)}`, 150, yPos);
+      doc.text(item.product.name, 20, yPos);
+      doc.text(item.quantity.toString(), 120, yPos);
+      doc.text(`${invoiceSettings.currency}${item.product.price.toFixed(2)}`, 140, yPos);
+      doc.text(`${invoiceSettings.currency}${(item.product.price * item.quantity).toFixed(2)}`, 170, yPos);
       yPos += 10;
     });
 
     // Totals
     yPos += 10;
-    doc.text(`Subtotal: ₹${subtotal.toFixed(2)}`, 20, yPos);
-    doc.text(`Tax (18%): ₹${tax.toFixed(2)}`, 20, yPos + 10);
-    doc.text(`Total: ₹${total.toFixed(2)}`, 20, yPos + 20);
+    doc.text(`Subtotal: ${invoiceSettings.currency}${subtotal.toFixed(2)}`, 120, yPos);
+    doc.text(`Tax (${invoiceSettings.taxRate}%): ${invoiceSettings.currency}${tax.toFixed(2)}`, 120, yPos + 10);
+    doc.setFontSize(14);
+    doc.text(`Total: ${invoiceSettings.currency}${total.toFixed(2)}`, 120, yPos + 25);
 
-    doc.save(`invoice-${Date.now()}.pdf`);
+    // Reduce stock for each item
+    invoiceItems.forEach(item => {
+      onUpdateStock(item.product.id, item.quantity);
+    });
+
+    doc.save(`${invoiceNumber}.pdf`);
   };
 
   return (
@@ -90,9 +126,93 @@ export default function InvoiceGenerator({ selectedProducts, onClear }: InvoiceG
         <CardTitle className="gradient-text">Invoice Generator</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Company Details */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Company Details</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="companyName">Company Name</Label>
+              <Input
+                id="companyName"
+                value={companyDetails.name}
+                onChange={(e) => setCompanyDetails(prev => ({ ...prev, name: e.target.value }))}
+                className="bg-surface-glass border-white/10"
+              />
+            </div>
+            <div>
+              <Label htmlFor="companyEmail">Company Email</Label>
+              <Input
+                id="companyEmail"
+                value={companyDetails.email}
+                onChange={(e) => setCompanyDetails(prev => ({ ...prev, email: e.target.value }))}
+                className="bg-surface-glass border-white/10"
+              />
+            </div>
+            <div>
+              <Label htmlFor="companyPhone">Company Phone</Label>
+              <Input
+                id="companyPhone"
+                value={companyDetails.phone}
+                onChange={(e) => setCompanyDetails(prev => ({ ...prev, phone: e.target.value }))}
+                className="bg-surface-glass border-white/10"
+              />
+            </div>
+            <div>
+              <Label htmlFor="companyAddress">Company Address</Label>
+              <Input
+                id="companyAddress"
+                value={companyDetails.address}
+                onChange={(e) => setCompanyDetails(prev => ({ ...prev, address: e.target.value }))}
+                className="bg-surface-glass border-white/10"
+              />
+            </div>
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* Invoice Settings */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Invoice Settings</h3>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <Label htmlFor="taxRate">Tax Rate (%)</Label>
+              <Input
+                id="taxRate"
+                type="number"
+                value={invoiceSettings.taxRate}
+                onChange={(e) => setInvoiceSettings(prev => ({ ...prev, taxRate: Number(e.target.value) }))}
+                className="bg-surface-glass border-white/10"
+              />
+            </div>
+            <div>
+              <Label htmlFor="currency">Currency</Label>
+              <Input
+                id="currency"
+                value={invoiceSettings.currency}
+                onChange={(e) => setInvoiceSettings(prev => ({ ...prev, currency: e.target.value }))}
+                className="bg-surface-glass border-white/10"
+              />
+            </div>
+            <div>
+              <Label htmlFor="invoicePrefix">Invoice Prefix</Label>
+              <Input
+                id="invoicePrefix"
+                value={invoiceSettings.invoicePrefix}
+                onChange={(e) => setInvoiceSettings(prev => ({ ...prev, invoicePrefix: e.target.value }))}
+                className="bg-surface-glass border-white/10"
+              />
+            </div>
+          </div>
+        </div>
+
+        <Separator />
+
         {/* Customer Details */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Customer Details</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
             <Label htmlFor="customerName">Customer Name</Label>
             <Input
               id="customerName"
@@ -128,7 +248,8 @@ export default function InvoiceGenerator({ selectedProducts, onClear }: InvoiceG
               onChange={(e) => setCustomerDetails(prev => ({ ...prev, address: e.target.value }))}
               className="bg-surface-glass border-white/10"
             />
-          </div>
+           </div>
+         </div>
         </div>
 
         <Separator />
@@ -140,7 +261,7 @@ export default function InvoiceGenerator({ selectedProducts, onClear }: InvoiceG
             <div key={item.product.id} className="flex items-center justify-between p-4 bg-surface-glass rounded-lg">
               <div className="flex-1">
                 <h4 className="font-medium">{item.product.name}</h4>
-                <p className="text-sm text-muted-foreground">₹{item.product.price} each</p>
+                <p className="text-sm text-muted-foreground">{invoiceSettings.currency}{item.product.price} each</p>
               </div>
               <div className="flex items-center space-x-2">
                 <Button
@@ -161,7 +282,7 @@ export default function InvoiceGenerator({ selectedProducts, onClear }: InvoiceG
                   <Plus className="w-4 h-4" />
                 </Button>
                 <div className="w-20 text-right font-medium">
-                  ₹{(item.product.price * item.quantity).toFixed(2)}
+                  {invoiceSettings.currency}{(item.product.price * item.quantity).toFixed(2)}
                 </div>
                 <Button
                   variant="ghost"
@@ -182,15 +303,15 @@ export default function InvoiceGenerator({ selectedProducts, onClear }: InvoiceG
         <div className="space-y-2">
           <div className="flex justify-between">
             <span>Subtotal:</span>
-            <span>₹{subtotal.toFixed(2)}</span>
+            <span>{invoiceSettings.currency}{subtotal.toFixed(2)}</span>
           </div>
           <div className="flex justify-between">
-            <span>Tax (18%):</span>
-            <span>₹{tax.toFixed(2)}</span>
+            <span>Tax ({invoiceSettings.taxRate}%):</span>
+            <span>{invoiceSettings.currency}{tax.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-lg font-semibold border-t pt-2">
             <span>Total:</span>
-            <span className="text-primary">₹{total.toFixed(2)}</span>
+            <span className="text-primary">{invoiceSettings.currency}{total.toFixed(2)}</span>
           </div>
         </div>
 

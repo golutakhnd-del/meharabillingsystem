@@ -77,6 +77,14 @@ export default function Dashboard() {
     setSelectedProducts([]);
   };
 
+  const handleUpdateStock = (productId: string, quantity: number) => {
+    setProducts(prev => prev.map(product => 
+      product.id === productId 
+        ? { ...product, stock: Math.max(0, product.stock - quantity) }
+        : product
+    ));
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <div className="relative">
@@ -202,6 +210,7 @@ export default function Dashboard() {
                 <InvoiceGenerator
                   selectedProducts={selectedProducts}
                   onClear={handleClearInvoice}
+                  onUpdateStock={handleUpdateStock}
                 />
               ) : (
                 <div className="text-center py-12">
