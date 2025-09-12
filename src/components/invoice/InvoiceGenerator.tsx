@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Plus, Minus, Download, Send } from 'lucide-react';
+import { Plus, Minus, Download, Send, User, Building } from 'lucide-react';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,17 +30,21 @@ export default function InvoiceGenerator({ selectedProducts, onClear, onUpdateSt
     address: '',
     phone: ''
   });
-  const [companyDetails, setCompanyDetails] = useState({
-    name: 'BillCraft Pro',
+  const [companyDetails, setCompanyDetails] = useLocalStorage('company-details', {
+    name: 'YUGFMSEREG',
     address: 'Your Business Address',
     phone: '+91 98765 43210',
-    email: 'contact@billcraft.com'
+    email: 'contact@yugfmsereg.com',
+    gst: 'GST123456789'
   });
-  const [invoiceSettings, setInvoiceSettings] = useState({
+  const [invoiceSettings, setInvoiceSettings] = useLocalStorage('invoice-settings', {
     taxRate: 18,
     currency: '₹',
-    invoicePrefix: 'INV'
+    invoicePrefix: 'YUG',
+    gstRate: 18
   });
+  const [savedCustomers, setSavedCustomers] = useLocalStorage('saved-customers', []);
+  const [showCustomerForm, setShowCustomerForm] = useState(false);
 
   const updateQuantity = (productId: string, change: number) => {
     setInvoiceItems(items =>
@@ -56,8 +61,8 @@ export default function InvoiceGenerator({ selectedProducts, onClear, onUpdateSt
   };
 
   const subtotal = invoiceItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
-  const tax = subtotal * (invoiceSettings.taxRate / 100);
-  const total = subtotal + tax;
+  const gst = subtotal * (invoiceSettings.gstRate / 100);
+  const total = subtotal + gst;
 
   const generateInvoiceNumber = () => {
     const timestamp = Date.now();
@@ -77,19 +82,20 @@ export default function InvoiceGenerator({ selectedProducts, onClear, onUpdateSt
     doc.text(companyDetails.address, 20, 45);
     doc.text(companyDetails.phone, 20, 55);
     doc.text(companyDetails.email, 20, 65);
+    doc.text(`GST: ${companyDetails.gst}`, 20, 75);
     
     doc.text(`Invoice #: ${invoiceNumber}`, 150, 35);
     doc.text(`Date: ${new Date().toLocaleDateString()}`, 150, 45);
 
     // Customer Details
-    doc.text('Bill To:', 20, 85);
-    doc.text(customerDetails.name, 20, 95);
-    doc.text(customerDetails.email, 20, 105);
-    doc.text(customerDetails.address, 20, 115);
-    doc.text(customerDetails.phone, 20, 125);
+    doc.text('Bill To:', 20, 95);
+    doc.text(customerDetails.name, 20, 105);
+    doc.text(customerDetails.email, 20, 115);
+    doc.text(customerDetails.address, 20, 125);
+    doc.text(customerDetails.phone, 20, 135);
 
     // Items Header
-    let yPos = 145;
+    let yPos = 155;
     doc.text('Items:', 20, yPos);
     doc.text('Qty', 120, yPos);
     doc.text('Rate', 140, yPos);
@@ -108,7 +114,7 @@ export default function InvoiceGenerator({ selectedProducts, onClear, onUpdateSt
     // Totals
     yPos += 10;
     doc.text(`Subtotal: ${invoiceSettings.currency}${subtotal.toFixed(2)}`, 120, yPos);
-    doc.text(`Tax (${invoiceSettings.taxRate}%): ${invoiceSettings.currency}${tax.toFixed(2)}`, 120, yPos + 10);
+    doc.text(`GST (${invoiceSettings.gstRate}%): ${invoiceSettings.currency}${gst.toFixed(2)}`, 120, yPos + 10);
     doc.setFontSize(14);
     doc.text(`Total: ${invoiceSettings.currency}${total.toFixed(2)}`, 120, yPos + 25);
 
@@ -128,7 +134,12 @@ export default function InvoiceGenerator({ selectedProducts, onClear, onUpdateSt
       <CardContent className="space-y-6">
         {/* Company Details */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Company Details</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <Building className="w-5 h-5" />
+              Company Details
+            </h3>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="companyName">Company Name</Label>
@@ -137,6 +148,16 @@ export default function InvoiceGenerator({ selectedProducts, onClear, onUpdateSt
                 value={companyDetails.name}
                 onChange={(e) => setCompanyDetails(prev => ({ ...prev, name: e.target.value }))}
                 className="bg-surface-glass border-white/10"
+              />
+            </div>
+            <div>
+              <Label htmlFor="companyGst">GST Number</Label>
+              <Input
+                id="companyGst"
+                value={companyDetails.gst}
+                onChange={(e) => setCompanyDetails(prev => ({ ...prev, gst: e.target.value }))}
+                className="bg-surface-glass border-white/10"
+                placeholder="GST123456789"
               />
             </div>
             <div>
@@ -157,7 +178,7 @@ export default function InvoiceGenerator({ selectedProducts, onClear, onUpdateSt
                 className="bg-surface-glass border-white/10"
               />
             </div>
-            <div>
+            <div className="col-span-2">
               <Label htmlFor="companyAddress">Company Address</Label>
               <Input
                 id="companyAddress"
@@ -174,14 +195,14 @@ export default function InvoiceGenerator({ selectedProducts, onClear, onUpdateSt
         {/* Invoice Settings */}
         <div className="space-y-4">
           <h3 className="text-lg font-semibold">Invoice Settings</h3>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
             <div>
-              <Label htmlFor="taxRate">Tax Rate (%)</Label>
+              <Label htmlFor="gstRate">GST Rate (%)</Label>
               <Input
-                id="taxRate"
+                id="gstRate"
                 type="number"
-                value={invoiceSettings.taxRate}
-                onChange={(e) => setInvoiceSettings(prev => ({ ...prev, taxRate: Number(e.target.value) }))}
+                value={invoiceSettings.gstRate}
+                onChange={(e) => setInvoiceSettings(prev => ({ ...prev, gstRate: Number(e.target.value) }))}
                 className="bg-surface-glass border-white/10"
               />
             </div>
@@ -210,46 +231,81 @@ export default function InvoiceGenerator({ selectedProducts, onClear, onUpdateSt
 
         {/* Customer Details */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Customer Details</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <User className="w-5 h-5" />
+              Customer Details
+            </h3>
+            <div className="flex gap-2">
+              {savedCustomers.length > 0 && (
+                <select 
+                  className="bg-surface-glass border border-white/10 rounded px-3 py-1 text-sm"
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      const customer = savedCustomers.find(c => c.id === e.target.value);
+                      if (customer) setCustomerDetails(customer);
+                    }
+                  }}
+                >
+                  <option value="">Select saved customer</option>
+                  {savedCustomers.map(customer => (
+                    <option key={customer.id} value={customer.id}>{customer.name}</option>
+                  ))}
+                </select>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (customerDetails.name) {
+                    const newCustomer = { ...customerDetails, id: Date.now().toString() };
+                    setSavedCustomers(prev => [...prev.filter(c => c.name !== customerDetails.name), newCustomer]);
+                  }
+                }}
+              >
+                Save Customer
+              </Button>
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-            <Label htmlFor="customerName">Customer Name</Label>
-            <Input
-              id="customerName"
-              value={customerDetails.name}
-              onChange={(e) => setCustomerDetails(prev => ({ ...prev, name: e.target.value }))}
-              className="bg-surface-glass border-white/10"
-            />
+              <Label htmlFor="customerName">Customer Name</Label>
+              <Input
+                id="customerName"
+                value={customerDetails.name}
+                onChange={(e) => setCustomerDetails(prev => ({ ...prev, name: e.target.value }))}
+                className="bg-surface-glass border-white/10"
+              />
+            </div>
+            <div>
+              <Label htmlFor="customerEmail">Email</Label>
+              <Input
+                id="customerEmail"
+                type="email"
+                value={customerDetails.email}
+                onChange={(e) => setCustomerDetails(prev => ({ ...prev, email: e.target.value }))}
+                className="bg-surface-glass border-white/10"
+              />
+            </div>
+            <div>
+              <Label htmlFor="customerPhone">Phone</Label>
+              <Input
+                id="customerPhone"
+                value={customerDetails.phone}
+                onChange={(e) => setCustomerDetails(prev => ({ ...prev, phone: e.target.value }))}
+                className="bg-surface-glass border-white/10"
+              />
+            </div>
+            <div>
+              <Label htmlFor="customerAddress">Address</Label>
+              <Input
+                id="customerAddress"
+                value={customerDetails.address}
+                onChange={(e) => setCustomerDetails(prev => ({ ...prev, address: e.target.value }))}
+                className="bg-surface-glass border-white/10"
+              />
+            </div>
           </div>
-          <div>
-            <Label htmlFor="customerEmail">Email</Label>
-            <Input
-              id="customerEmail"
-              type="email"
-              value={customerDetails.email}
-              onChange={(e) => setCustomerDetails(prev => ({ ...prev, email: e.target.value }))}
-              className="bg-surface-glass border-white/10"
-            />
-          </div>
-          <div>
-            <Label htmlFor="customerPhone">Phone</Label>
-            <Input
-              id="customerPhone"
-              value={customerDetails.phone}
-              onChange={(e) => setCustomerDetails(prev => ({ ...prev, phone: e.target.value }))}
-              className="bg-surface-glass border-white/10"
-            />
-          </div>
-          <div>
-            <Label htmlFor="customerAddress">Address</Label>
-            <Input
-              id="customerAddress"
-              value={customerDetails.address}
-              onChange={(e) => setCustomerDetails(prev => ({ ...prev, address: e.target.value }))}
-              className="bg-surface-glass border-white/10"
-            />
-           </div>
-         </div>
         </div>
 
         <Separator />
@@ -306,8 +362,8 @@ export default function InvoiceGenerator({ selectedProducts, onClear, onUpdateSt
             <span>{invoiceSettings.currency}{subtotal.toFixed(2)}</span>
           </div>
           <div className="flex justify-between">
-            <span>Tax ({invoiceSettings.taxRate}%):</span>
-            <span>{invoiceSettings.currency}{tax.toFixed(2)}</span>
+            <span>GST ({invoiceSettings.gstRate}%):</span>
+            <span>{invoiceSettings.currency}{gst.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-lg font-semibold border-t pt-2">
             <span>Total:</span>

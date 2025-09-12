@@ -16,8 +16,8 @@ export default function Header({ onSearch }: HeaderProps) {
             <Scene3D enableControls={false} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold gradient-text">BillCraft Pro</h1>
-            <p className="text-muted-foreground text-sm">Modern Billing & Inventory</p>
+            <h1 className="text-2xl font-bold gradient-text">YUGFMSEREG</h1>
+            <p className="text-muted-foreground text-sm">Smart Billing & Stock Management</p>
           </div>
         </div>
 
