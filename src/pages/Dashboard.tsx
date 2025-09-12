@@ -6,6 +6,7 @@ import ProductCard, { Product } from '@/components/products/ProductCard';
 import ProductForm from '@/components/forms/ProductForm';
 import InvoiceGenerator from '@/components/invoice/InvoiceGenerator';
 import { ContactInfo } from '@/components/support/ContactInfo';
+import CustomerManager from '@/components/customers/CustomerManager';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
@@ -101,6 +102,7 @@ export default function Dashboard() {
             <TabsList className="glass-card border-white/10">
               <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
               <TabsTrigger value="products">Products</TabsTrigger>
+              <TabsTrigger value="customers">Customers</TabsTrigger>
               <TabsTrigger value="invoice">Invoice</TabsTrigger>
               <TabsTrigger value="support">Support</TabsTrigger>
             </TabsList>
@@ -207,13 +209,25 @@ export default function Dashboard() {
               )}
             </TabsContent>
 
+            <TabsContent value="customers" className="space-y-6">
+              <CustomerManager />
+            </TabsContent>
+
             <TabsContent value="invoice" className="space-y-6">
               {selectedProducts.length > 0 ? (
-                <InvoiceGenerator
-                  selectedProducts={selectedProducts}
-                  onClear={handleClearInvoice}
-                  onUpdateStock={handleUpdateStock}
-                />
+                <div className="relative">
+                  {/* 3D Invoice Container */}
+                  <div className="glass-card border-white/10 shadow-elegant transform perspective-1000 hover:scale-105 transition-all duration-500">
+                    <div className="absolute inset-0 bg-gradient-primary opacity-5 rounded-lg"></div>
+                    <div className="relative z-10">
+                      <InvoiceGenerator
+                        selectedProducts={selectedProducts}
+                        onClear={handleClearInvoice}
+                        onUpdateStock={handleUpdateStock}
+                      />
+                    </div>
+                  </div>
+                </div>
               ) : (
                 <div className="text-center py-12">
                   <ShoppingCart className="w-12 h-12 text-muted-foreground mx-auto mb-4" />

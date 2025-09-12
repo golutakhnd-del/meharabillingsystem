@@ -100,6 +100,9 @@ export default {
         "fade-in": "fade-in 0.5s ease-out",
         "slide-up": "slide-up 0.4s ease-out",
       },
+      perspective: {
+        '1000': '1000px',
+      },
     },
   },
   plugins: [require("tailwindcss-animate")],

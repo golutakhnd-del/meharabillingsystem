@@ -21,6 +21,7 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
           fps: 10,
           qrbox: { width: 250, height: 250 },
           aspectRatio: 1.0,
+          rememberLastUsedCamera: true,
         },
         false
       );
