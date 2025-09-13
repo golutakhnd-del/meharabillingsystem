@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Minus, Download, Send, User, Building } from 'lucide-react';
+import { Plus, Minus, Download, Send, User, Building, Save, RotateCcw, RefreshCw } from 'lucide-react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Product } from '@/components/products/ProductCard';
 import { InvoiceHistoryRecord } from './InvoiceHistory';
+import { useToast } from '@/hooks/use-toast';
 import jsPDF from 'jspdf';
 
 interface InvoiceItem {
@@ -47,6 +48,41 @@ export default function InvoiceGenerator({ selectedProducts, onClear, onUpdateSt
   const [savedCustomers, setSavedCustomers] = useLocalStorage('saved-customers', []);
   const [invoiceHistory, setInvoiceHistory] = useLocalStorage<InvoiceHistoryRecord[]>('yugfmsereg-invoice-history', []);
   const [showCustomerForm, setShowCustomerForm] = useState(false);
+  const { toast } = useToast();
+
+  const saveCompanyDetails = () => {
+    toast({
+      title: "Company details saved!",
+      description: "Your company information has been saved successfully.",
+    });
+  };
+
+  const resetCompanyDetails = () => {
+    setCompanyDetails({
+      name: 'YUGFMSEREG',
+      address: '',
+      phone: '',
+      email: '',
+      gst: ''
+    });
+    toast({
+      title: "Company details reset",
+      description: "Company information has been reset to default.",
+    });
+  };
+
+  const resetPrices = () => {
+    setInvoiceItems(items =>
+      items.map(item => ({
+        ...item,
+        quantity: 1
+      }))
+    );
+    toast({
+      title: "Prices reset",
+      description: "All item quantities have been reset to 1.",
+    });
+  };
 
   const updateQuantity = (productId: string, change: number) => {
     setInvoiceItems(items =>
@@ -214,6 +250,26 @@ export default function InvoiceGenerator({ selectedProducts, onClear, onUpdateSt
               <Building className="w-5 h-5" />
               Company Details
             </h3>
+            <div className="flex gap-2">
+              <Button
+                onClick={saveCompanyDetails}
+                size="sm"
+                variant="outline"
+                className="text-green-600 border-green-600 hover:bg-green-50"
+              >
+                <Save className="w-4 h-4 mr-1" />
+                Save
+              </Button>
+              <Button
+                onClick={resetCompanyDetails}
+                size="sm"
+                variant="outline"
+                className="text-orange-600 border-orange-600 hover:bg-orange-50"
+              >
+                <RotateCcw className="w-4 h-4 mr-1" />
+                Reset
+              </Button>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -387,7 +443,18 @@ export default function InvoiceGenerator({ selectedProducts, onClear, onUpdateSt
 
         {/* Invoice Items */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Items</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Items</h3>
+            <Button
+              onClick={resetPrices}
+              size="sm"
+              variant="outline"
+              className="text-blue-600 border-blue-600 hover:bg-blue-50"
+            >
+              <RefreshCw className="w-4 h-4 mr-1" />
+              Reset Quantities
+            </Button>
+          </div>
           {invoiceItems.map(item => (
             <div key={item.product.id} className="flex items-center justify-between p-4 bg-surface-glass rounded-lg">
               <div className="flex-1">
