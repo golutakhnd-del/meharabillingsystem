@@ -5,6 +5,7 @@ import StatsCard from '@/components/dashboard/StatsCard';
 import ProductCard, { Product } from '@/components/products/ProductCard';
 import ProductForm from '@/components/forms/ProductForm';
 import InvoiceGenerator from '@/components/invoice/InvoiceGenerator';
+import InvoiceHistory from '@/components/invoice/InvoiceHistory';
 import { ContactInfo } from '@/components/support/ContactInfo';
 import CustomerManager from '@/components/customers/CustomerManager';
 import { Button } from '@/components/ui/button';
@@ -104,6 +105,7 @@ export default function Dashboard() {
               <TabsTrigger value="products">Products</TabsTrigger>
               <TabsTrigger value="customers">Customers</TabsTrigger>
               <TabsTrigger value="invoice">Invoice</TabsTrigger>
+              <TabsTrigger value="history">History</TabsTrigger>
               <TabsTrigger value="support">Support</TabsTrigger>
             </TabsList>
 
@@ -243,6 +245,10 @@ export default function Dashboard() {
                   </Button>
                 </div>
               )}
+            </TabsContent>
+
+            <TabsContent value="history" className="space-y-6">
+              <InvoiceHistory />
             </TabsContent>
 
             <TabsContent value="support" className="space-y-6">

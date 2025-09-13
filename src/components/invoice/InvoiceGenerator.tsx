@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Product } from '@/components/products/ProductCard';
+import { InvoiceHistoryRecord } from './InvoiceHistory';
 import jsPDF from 'jspdf';
 
 interface InvoiceItem {
@@ -44,6 +45,7 @@ export default function InvoiceGenerator({ selectedProducts, onClear, onUpdateSt
     gstRate: 18
   });
   const [savedCustomers, setSavedCustomers] = useLocalStorage('saved-customers', []);
+  const [invoiceHistory, setInvoiceHistory] = useLocalStorage<InvoiceHistoryRecord[]>('yugfmsereg-invoice-history', []);
   const [showCustomerForm, setShowCustomerForm] = useState(false);
 
   const updateQuantity = (productId: string, change: number) => {
@@ -170,6 +172,27 @@ export default function InvoiceGenerator({ selectedProducts, onClear, onUpdateSt
     doc.setFontSize(14);
     doc.text(`Total: ${invoiceSettings.currency}${total.toFixed(2)}`, 120, yPos + 25);
 
+    // Save to invoice history
+    const invoiceRecord: InvoiceHistoryRecord = {
+      id: uniqueInvoiceId,
+      invoiceNumber: uniqueInvoiceId,
+      customerName: customerDetails.name,
+      customerEmail: customerDetails.email,
+      date: new Date().toISOString(),
+      total: total,
+      currency: invoiceSettings.currency,
+      items: invoiceItems.map(item => ({
+        name: item.product.name,
+        quantity: item.quantity,
+        price: item.product.price
+      })),
+      companyName: companyDetails.name,
+      gstAmount: gst,
+      subtotal: subtotal
+    };
+    
+    setInvoiceHistory(prev => [invoiceRecord, ...prev]);
+    
     // Reduce stock for each item
     invoiceItems.forEach(item => {
       onUpdateStock(item.product.id, item.quantity);
