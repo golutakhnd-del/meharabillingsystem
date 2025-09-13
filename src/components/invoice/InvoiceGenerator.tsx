@@ -71,28 +71,80 @@ export default function InvoiceGenerator({ selectedProducts, onClear, onUpdateSt
   };
 
   const generatePDF = () => {
-    const invoiceNumber = generateInvoiceNumber();
+    const uniqueInvoiceId = `YFG-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
     const doc = new jsPDF();
     
-    // Header
-    doc.setFontSize(20);
-    doc.text('INVOICE', 20, 20);
-    doc.setFontSize(12);
-    doc.text(companyDetails.name, 20, 35);
-    doc.text(companyDetails.address, 20, 45);
-    doc.text(companyDetails.phone, 20, 55);
-    doc.text(companyDetails.email, 20, 65);
-    doc.text(`GST: ${companyDetails.gst}`, 20, 75);
+    // Add gradient background effect
+    doc.setFillColor(25, 25, 112);
+    doc.rect(0, 0, 210, 297, 'F');
     
-    doc.text(`Invoice #: ${invoiceNumber}`, 150, 35);
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, 150, 45);
+    // Add white overlay with opacity
+    doc.setFillColor(255, 255, 255);
+    doc.rect(10, 10, 190, 277, 'F');
+    
+    // Add shadow effect border
+    doc.setDrawColor(100, 100, 100);
+    doc.setLineWidth(0.5);
+    doc.rect(15, 15, 180, 267);
 
-    // Customer Details
-    doc.text('Bill To:', 20, 95);
-    doc.text(customerDetails.name, 20, 105);
-    doc.text(customerDetails.email, 20, 115);
-    doc.text(customerDetails.address, 20, 125);
-    doc.text(customerDetails.phone, 20, 135);
+    // Company Header with 3D styling
+    doc.setFillColor(25, 25, 112);
+    doc.rect(20, 20, 170, 35, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
+    doc.setFont('helvetica', 'bold');
+    doc.text('YUGFMSEREG INVOICE', 25, 35);
+    doc.setFontSize(10);
+    doc.text('Professional Billing Solution', 25, 45);
+    
+    // Company Details
+    doc.setTextColor(25, 25, 112);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text(companyDetails.name, 20, 70);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(60, 60, 60);
+    doc.text(companyDetails.address, 20, 80);
+    doc.text(`Phone: ${companyDetails.phone}`, 20, 90);
+    doc.text(`Email: ${companyDetails.email}`, 20, 100);
+    doc.text(`GST: ${companyDetails.gst}`, 20, 110);
+    
+    // Invoice Details with unique ID
+    doc.setFillColor(240, 240, 240);
+    doc.rect(130, 65, 60, 50, 'F');
+    doc.setDrawColor(200, 200, 200);
+    doc.rect(130, 65, 60, 50);
+    doc.setTextColor(25, 25, 112);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('INVOICE ID:', 135, 75);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.text(uniqueInvoiceId, 135, 85);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('DATE:', 135, 95);
+    doc.setFont('helvetica', 'normal');
+    doc.text(new Date().toLocaleDateString(), 135, 105);
+
+    // Customer Details with 3D styling
+    doc.setFillColor(245, 245, 245);
+    doc.rect(20, 125, 170, 50, 'F');
+    doc.setDrawColor(200, 200, 200);
+    doc.rect(20, 125, 170, 50);
+    
+    doc.setTextColor(25, 25, 112);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('BILL TO:', 25, 135);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(60, 60, 60);
+    doc.text(customerDetails.name, 25, 145);
+    doc.text(customerDetails.email, 25, 155);
+    doc.text(customerDetails.address, 25, 165);
+    doc.text(customerDetails.phone, 25, 175);
 
     // Items Header
     let yPos = 155;
@@ -123,7 +175,7 @@ export default function InvoiceGenerator({ selectedProducts, onClear, onUpdateSt
       onUpdateStock(item.product.id, item.quantity);
     });
 
-    doc.save(`${invoiceNumber}.pdf`);
+    doc.save(`${uniqueInvoiceId}.pdf`);
   };
 
   return (
