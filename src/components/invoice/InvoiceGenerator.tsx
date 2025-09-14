@@ -14,6 +14,7 @@ import jsPDF from 'jspdf';
 interface InvoiceItem {
   product: Product;
   quantity: number;
+  customPrice?: number;
 }
 
 interface InvoiceGeneratorProps {
@@ -94,11 +95,21 @@ export default function InvoiceGenerator({ selectedProducts, onClear, onUpdateSt
     );
   };
 
+  const updatePrice = (productId: string, newPrice: number) => {
+    setInvoiceItems(items =>
+      items.map(item =>
+        item.product.id === productId
+          ? { ...item, customPrice: newPrice }
+          : item
+      )
+    );
+  };
+
   const removeItem = (productId: string) => {
     setInvoiceItems(items => items.filter(item => item.product.id !== productId));
   };
 
-  const subtotal = invoiceItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+  const subtotal = invoiceItems.reduce((sum, item) => sum + ((item.customPrice ?? item.product.price) * item.quantity), 0);
   const gst = subtotal * (invoiceSettings.gstRate / 100);
   const total = subtotal + gst;
 
@@ -194,10 +205,11 @@ export default function InvoiceGenerator({ selectedProducts, onClear, onUpdateSt
 
     // Items
     invoiceItems.forEach(item => {
+      const itemPrice = item.customPrice ?? item.product.price;
       doc.text(item.product.name, 20, yPos);
       doc.text(item.quantity.toString(), 120, yPos);
-      doc.text(`${invoiceSettings.currency}${item.product.price.toFixed(2)}`, 140, yPos);
-      doc.text(`${invoiceSettings.currency}${(item.product.price * item.quantity).toFixed(2)}`, 170, yPos);
+      doc.text(`${invoiceSettings.currency}${itemPrice.toFixed(2)}`, 140, yPos);
+      doc.text(`${invoiceSettings.currency}${(itemPrice * item.quantity).toFixed(2)}`, 170, yPos);
       yPos += 10;
     });
 
@@ -220,7 +232,7 @@ export default function InvoiceGenerator({ selectedProducts, onClear, onUpdateSt
       items: invoiceItems.map(item => ({
         name: item.product.name,
         quantity: item.quantity,
-        price: item.product.price
+        price: item.customPrice ?? item.product.price
       })),
       companyName: companyDetails.name,
       gstAmount: gst,
@@ -459,7 +471,17 @@ export default function InvoiceGenerator({ selectedProducts, onClear, onUpdateSt
             <div key={item.product.id} className="flex items-center justify-between p-4 bg-surface-glass rounded-lg">
               <div className="flex-1">
                 <h4 className="font-medium">{item.product.name}</h4>
-                <p className="text-sm text-muted-foreground">{invoiceSettings.currency}{item.product.price} each</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-sm text-muted-foreground">Price:</span>
+                  <Input
+                    type="number"
+                    value={item.customPrice ?? item.product.price}
+                    onChange={(e) => updatePrice(item.product.id, Number(e.target.value))}
+                    className="w-20 h-6 text-xs bg-surface-glass border-white/10"
+                    step="0.01"
+                    min="0"
+                  />
+                </div>
               </div>
               <div className="flex items-center space-x-2">
                 <Button
@@ -480,7 +502,7 @@ export default function InvoiceGenerator({ selectedProducts, onClear, onUpdateSt
                   <Plus className="w-4 h-4" />
                 </Button>
                 <div className="w-20 text-right font-medium">
-                  {invoiceSettings.currency}{(item.product.price * item.quantity).toFixed(2)}
+                  {invoiceSettings.currency}{((item.customPrice ?? item.product.price) * item.quantity).toFixed(2)}
                 </div>
                 <Button
                   variant="ghost"
