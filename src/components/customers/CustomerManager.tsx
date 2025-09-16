@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Plus, User, Edit, Trash2, Phone, Mail, MapPin } from 'lucide-react';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useSecureLocalStorage } from '@/hooks/useSecureLocalStorage';
+import { useSecureValidation, validators, sanitizers } from '@/lib/security';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { SecureForm } from '@/components/common/SecureForm';
 
 interface Customer {
   id: string;
@@ -20,9 +22,10 @@ interface Customer {
 }
 
 export default function CustomerManager() {
-  const [customers, setCustomers] = useLocalStorage<Customer[]>('saved-customers', []);
+  const [customers, setCustomers] = useSecureLocalStorage<Customer[]>('saved-customers', [], true);
   const [isAddingCustomer, setIsAddingCustomer] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const { validateAndSanitize } = useSecureValidation();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -32,17 +35,35 @@ export default function CustomerManager() {
     isPrime: false
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (data: any) => {
+    // Validate and sanitize all inputs
+    const nameValidation = validateAndSanitize('name', data.name, validators.name, sanitizers.text);
+    const emailValidation = validateAndSanitize('email', data.email, validators.email, sanitizers.text, 'Please enter a valid email address');
+    const phoneValidation = validateAndSanitize('phone', data.phone, validators.indianPhone, sanitizers.phone, 'Please enter a valid Indian phone number (+91XXXXXXXXXX or 10 digits)');
+    const gstValidation = data.gst ? validateAndSanitize('GST', data.gst, validators.gstNumber, sanitizers.gst, 'Please enter a valid 15-character GST number') : { isValid: true, value: '' };
+
+    if (!nameValidation.isValid || !emailValidation.isValid || !phoneValidation.isValid || !gstValidation.isValid) {
+      return;
+    }
+
+    const sanitizedData = {
+      name: nameValidation.value,
+      email: emailValidation.value,
+      phone: phoneValidation.value,
+      address: sanitizers.text(data.address || ''),
+      gst: gstValidation.value,
+      isPrime: Boolean(data.isPrime)
+    };
+
     if (editingCustomer) {
       setCustomers(prev => prev.map(c => 
         c.id === editingCustomer.id 
-          ? { ...formData, id: editingCustomer.id }
+          ? { ...sanitizedData, id: editingCustomer.id }
           : c
       ));
     } else {
       const newCustomer: Customer = {
-        ...formData,
+        ...sanitizedData,
         id: Date.now().toString()
       };
       setCustomers(prev => [...prev, newCustomer]);
@@ -97,14 +118,16 @@ export default function CustomerManager() {
                 {editingCustomer ? 'Edit Customer' : 'Add New Customer'}
               </DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <SecureForm onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <Label htmlFor="name">Customer Name</Label>
                 <Input
+                  name="name"
                   id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  defaultValue={formData.name}
                   className="bg-surface-glass border-white/10"
+                  placeholder="Enter full name"
+                  maxLength={100}
                   required
                 />
               </div>
@@ -112,21 +135,25 @@ export default function CustomerManager() {
                 <div>
                   <Label htmlFor="email">Email</Label>
                   <Input
+                    name="email"
                     id="email"
                     type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                    defaultValue={formData.email}
                     className="bg-surface-glass border-white/10"
+                    placeholder="example@domain.com"
+                    maxLength={254}
                     required
                   />
                 </div>
                 <div>
                   <Label htmlFor="phone">Phone</Label>
                   <Input
+                    name="phone"
                     id="phone"
-                    value={formData.phone}
-                    onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                    defaultValue={formData.phone}
                     className="bg-surface-glass border-white/10"
+                    placeholder="+91 98765 43210"
+                    maxLength={15}
                     required
                   />
                 </div>
@@ -134,10 +161,12 @@ export default function CustomerManager() {
               <div>
                 <Label htmlFor="address">Address</Label>
                 <Textarea
+                  name="address"
                   id="address"
-                  value={formData.address}
-                  onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+                  defaultValue={formData.address}
                   className="bg-surface-glass border-white/10"
+                  placeholder="Enter complete address"
+                  maxLength={500}
                   rows={3}
                 />
               </div>
@@ -145,18 +174,20 @@ export default function CustomerManager() {
                 <div>
                   <Label htmlFor="gst">GST Number (Optional)</Label>
                   <Input
+                    name="gst"
                     id="gst"
-                    value={formData.gst}
-                    onChange={(e) => setFormData(prev => ({ ...prev, gst: e.target.value }))}
+                    defaultValue={formData.gst}
                     className="bg-surface-glass border-white/10"
+                    placeholder="22AAAAA0000A1Z5"
+                    maxLength={15}
                   />
                 </div>
                 <div className="flex items-center space-x-2 pt-6">
                   <input
                     type="checkbox"
+                    name="isPrime"
                     id="isPrime"
-                    checked={formData.isPrime}
-                    onChange={(e) => setFormData(prev => ({ ...prev, isPrime: e.target.checked }))}
+                    defaultChecked={formData.isPrime}
                     className="rounded"
                   />
                   <Label htmlFor="isPrime">Prime Customer</Label>
@@ -170,7 +201,7 @@ export default function CustomerManager() {
                   Cancel
                 </Button>
               </div>
-            </form>
+            </SecureForm>
           </DialogContent>
         </Dialog>
       </div>

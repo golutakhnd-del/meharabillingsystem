@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { Save, X, ScanLine } from 'lucide-react';
 import { BarcodeScanner } from '@/components/barcode/BarcodeScanner';
+import { useSecureValidation, validators, sanitizers } from '@/lib/security';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Product } from '@/components/products/ProductCard';
+import { SecureForm } from '@/components/common/SecureForm';
 
 interface ProductFormProps {
   product?: Product;
@@ -25,11 +27,32 @@ export default function ProductForm({ product, onSave, onCancel }: ProductFormPr
     lowStockThreshold: product?.lowStockThreshold || 10,
   });
   const [showScanner, setShowScanner] = useState(false);
+  const { validateAndSanitize } = useSecureValidation();
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (data: any) => {
+    // Validate and sanitize all inputs
+    const nameValidation = validateAndSanitize('name', data.name, validators.name, sanitizers.text);
+    const skuValidation = validateAndSanitize('SKU', data.sku, validators.sku, sanitizers.text, 'SKU must be 3-50 alphanumeric characters');
+    const priceValidation = validateAndSanitize('price', Number(data.price), validators.price, sanitizers.number, 'Price must be between 0 and 999,999.99');
+    const stockValidation = validateAndSanitize('stock', Number(data.stock), validators.quantity, sanitizers.number, 'Stock must be a positive integer');
+    const thresholdValidation = validateAndSanitize('threshold', Number(data.lowStockThreshold), validators.quantity, sanitizers.number, 'Threshold must be a positive integer');
+
+    if (!nameValidation.isValid || !skuValidation.isValid || !priceValidation.isValid || !stockValidation.isValid || !thresholdValidation.isValid) {
+      return;
+    }
+
+    const sanitizedData = {
+      name: nameValidation.value,
+      description: sanitizers.text(data.description || ''),
+      price: priceValidation.value,
+      stock: stockValidation.value,
+      category: sanitizers.text(data.category),
+      sku: skuValidation.value,
+      lowStockThreshold: thresholdValidation.value,
+    };
+
     onSave({
-      ...formData,
+      ...sanitizedData,
       ...(product?.id && { id: product.id }),
     });
   };
@@ -47,17 +70,18 @@ export default function ProductForm({ product, onSave, onCancel }: ProductFormPr
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <SecureForm onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="name">Product Name</Label>
                 <div className="flex gap-2">
                   <Input
+                    name="name"
                     id="name"
-                    value={formData.name}
-                    onChange={(e) => handleChange('name', e.target.value)}
+                    defaultValue={formData.name}
                     className="bg-surface-glass border-white/10"
                     placeholder="Enter product name or scan barcode"
+                    maxLength={100}
                     required
                   />
                   <Button
@@ -74,10 +98,12 @@ export default function ProductForm({ product, onSave, onCancel }: ProductFormPr
               <div>
                 <Label htmlFor="sku">SKU</Label>
                 <Input
+                  name="sku"
                   id="sku"
-                  value={formData.sku}
-                  onChange={(e) => handleChange('sku', e.target.value)}
+                  defaultValue={formData.sku}
                   className="bg-surface-glass border-white/10"
+                  placeholder="e.g., PROD-001"
+                  maxLength={50}
                   required
                 />
               </div>
@@ -86,10 +112,12 @@ export default function ProductForm({ product, onSave, onCancel }: ProductFormPr
             <div>
               <Label htmlFor="description">Description</Label>
               <Textarea
+                name="description"
                 id="description"
-                value={formData.description}
-                onChange={(e) => handleChange('description', e.target.value)}
+                defaultValue={formData.description}
                 className="bg-surface-glass border-white/10"
+                placeholder="Enter product description"
+                maxLength={1000}
                 rows={3}
               />
             </div>
@@ -98,11 +126,13 @@ export default function ProductForm({ product, onSave, onCancel }: ProductFormPr
               <div>
                 <Label htmlFor="price">Price (₹)</Label>
                 <Input
+                  name="price"
                   id="price"
                   type="number"
                   step="0.01"
-                  value={formData.price}
-                  onChange={(e) => handleChange('price', parseFloat(e.target.value) || 0)}
+                  min="0"
+                  max="999999.99"
+                  defaultValue={formData.price}
                   className="bg-surface-glass border-white/10"
                   required
                 />
@@ -110,10 +140,12 @@ export default function ProductForm({ product, onSave, onCancel }: ProductFormPr
               <div>
                 <Label htmlFor="stock">Stock Quantity</Label>
                 <Input
+                  name="stock"
                   id="stock"
                   type="number"
-                  value={formData.stock}
-                  onChange={(e) => handleChange('stock', parseInt(e.target.value) || 0)}
+                  min="0"
+                  max="99999"
+                  defaultValue={formData.stock}
                   className="bg-surface-glass border-white/10"
                   required
                 />
@@ -121,10 +153,12 @@ export default function ProductForm({ product, onSave, onCancel }: ProductFormPr
               <div>
                 <Label htmlFor="lowStockThreshold">Low Stock Alert</Label>
                 <Input
+                  name="lowStockThreshold"
                   id="lowStockThreshold"
                   type="number"
-                  value={formData.lowStockThreshold}
-                  onChange={(e) => handleChange('lowStockThreshold', parseInt(e.target.value) || 0)}
+                  min="0"
+                  max="9999"
+                  defaultValue={formData.lowStockThreshold}
                   className="bg-surface-glass border-white/10"
                 />
               </div>
@@ -133,10 +167,12 @@ export default function ProductForm({ product, onSave, onCancel }: ProductFormPr
             <div>
               <Label htmlFor="category">Category</Label>
               <Input
+                name="category"
                 id="category"
-                value={formData.category}
-                onChange={(e) => handleChange('category', e.target.value)}
+                defaultValue={formData.category}
                 className="bg-surface-glass border-white/10"
+                placeholder="e.g., Electronics, Clothing"
+                maxLength={50}
                 required
               />
             </div>
@@ -159,7 +195,7 @@ export default function ProductForm({ product, onSave, onCancel }: ProductFormPr
                 Cancel
               </Button>
             </div>
-          </form>
+          </SecureForm>
         </CardContent>
       </Card>
 

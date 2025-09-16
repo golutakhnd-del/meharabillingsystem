@@ -96,6 +96,16 @@ export default function InvoiceGenerator({ selectedProducts, onClear, onUpdateSt
   };
 
   const updatePrice = (productId: string, newPrice: number) => {
+    // Validate price input
+    if (newPrice < 0 || newPrice > 999999.99 || !Number.isFinite(newPrice)) {
+      toast({
+        title: "Invalid Price",
+        description: "Price must be between ₹0 and ₹999,999.99",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setInvoiceItems(items =>
       items.map(item =>
         item.product.id === productId
@@ -480,6 +490,7 @@ export default function InvoiceGenerator({ selectedProducts, onClear, onUpdateSt
                     className="w-20 h-6 text-xs bg-surface-glass border-white/10"
                     step="0.01"
                     min="0"
+                    max="999999.99"
                   />
                 </div>
               </div>
