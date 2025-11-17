@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Package, DollarSign, ShoppingCart, AlertTriangle, Plus, Filter } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import StatsCard from '@/components/dashboard/StatsCard';
@@ -10,17 +10,59 @@ import { ContactInfo } from '@/components/support/ContactInfo';
 import CustomerManager from '@/components/customers/CustomerManager';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { sampleProducts } from '@/data/sampleData';
 import Scene3D from '@/components/3d/Scene3D';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 export default function Dashboard() {
-  const [products, setProducts] = useLocalStorage<Product[]>('billcraft-products', sampleProducts);
+  const [products, setProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [selectedProducts, setSelectedProducts] = useState<Product[]>([]);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  // Fetch products from database
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        const formattedProducts: Product[] = (data || []).map(p => ({
+          id: p.id,
+          name: p.name,
+          price: Number(p.price),
+          stock: p.stock,
+          category: p.category || '',
+          sku: p.barcode || '',
+          lowStockThreshold: 10,
+          description: ''
+        }));
+
+        setProducts(formattedProducts);
+      } catch (error: any) {
+        toast({
+          title: "Error loading products",
+          description: error.message,
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, [toast]);
 
   const filteredProducts = useMemo(() => {
     return products.filter(product =>
@@ -44,24 +86,110 @@ export default function Dashboard() {
     };
   }, [products]);
 
-  const handleSaveProduct = (productData: Omit<Product, 'id'> & { id?: string }) => {
-    if (productData.id) {
-      // Update existing product
-      setProducts(prev => prev.map(p => p.id === productData.id ? { ...productData, id: productData.id } : p));
-    } else {
-      // Add new product
-      const newProduct = {
-        ...productData,
-        id: Date.now().toString(),
-      };
-      setProducts(prev => [...prev, newProduct]);
+  const handleSaveProduct = async (productData: Omit<Product, 'id'> & { id?: string }) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: "Authentication required",
+          description: "Please sign in to manage products",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (productData.id) {
+        // Update existing product
+        const { error } = await supabase
+          .from('products')
+          .update({
+            name: productData.name,
+            price: productData.price,
+            stock: productData.stock,
+            category: productData.category,
+            barcode: productData.sku,
+          })
+          .eq('id', productData.id);
+
+        if (error) throw error;
+
+        setProducts(prev => prev.map(p => 
+          p.id === productData.id ? { ...productData, id: productData.id } : p
+        ));
+
+        toast({
+          title: "Product updated",
+          description: "Product has been updated successfully",
+        });
+      } else {
+        // Add new product
+        const { data, error } = await supabase
+          .from('products')
+          .insert({
+            user_id: user.id,
+            name: productData.name,
+            price: productData.price,
+            stock: productData.stock,
+            category: productData.category,
+            barcode: productData.sku,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        const newProduct: Product = {
+          id: data.id,
+          name: data.name,
+          price: Number(data.price),
+          stock: data.stock,
+          category: data.category || '',
+          sku: data.barcode || '',
+          lowStockThreshold: 10,
+          description: ''
+        };
+
+        setProducts(prev => [...prev, newProduct]);
+
+        toast({
+          title: "Product added",
+          description: "Product has been added successfully",
+        });
+      }
+
+      setShowProductForm(false);
+      setEditingProduct(null);
+    } catch (error: any) {
+      toast({
+        title: "Error saving product",
+        description: error.message,
+        variant: "destructive",
+      });
     }
-    setShowProductForm(false);
-    setEditingProduct(null);
   };
 
-  const handleDeleteProduct = (id: string) => {
-    setProducts(prev => prev.filter(p => p.id !== id));
+  const handleDeleteProduct = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setProducts(prev => prev.filter(p => p.id !== id));
+
+      toast({
+        title: "Product deleted",
+        description: "Product has been deleted successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error deleting product",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
   const handleEditProduct = (product: Product) => {
@@ -80,12 +208,30 @@ export default function Dashboard() {
     setSelectedProducts([]);
   };
 
-  const handleUpdateStock = (productId: string, quantity: number) => {
-    setProducts(prev => prev.map(product => 
-      product.id === productId 
-        ? { ...product, stock: Math.max(0, product.stock - quantity) }
-        : product
-    ));
+  const handleUpdateStock = async (productId: string, quantity: number) => {
+    try {
+      const product = products.find(p => p.id === productId);
+      if (!product) return;
+
+      const newStock = Math.max(0, product.stock - quantity);
+
+      const { error } = await supabase
+        .from('products')
+        .update({ stock: newStock })
+        .eq('id', productId);
+
+      if (error) throw error;
+
+      setProducts(prev => prev.map(p => 
+        p.id === productId ? { ...p, stock: newStock } : p
+      ));
+    } catch (error: any) {
+      toast({
+        title: "Error updating stock",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
   return (

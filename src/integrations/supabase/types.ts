@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      company_settings: {
+        Row: {
+          company_address: string | null
+          company_email: string | null
+          company_gst: string | null
+          company_name: string | null
+          company_phone: string | null
+          created_at: string
+          currency: string
+          gst_rate: number
+          id: string
+          invoice_prefix: string
+          tax_rate: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_address?: string | null
+          company_email?: string | null
+          company_gst?: string | null
+          company_name?: string | null
+          company_phone?: string | null
+          created_at?: string
+          currency?: string
+          gst_rate?: number
+          id?: string
+          invoice_prefix?: string
+          tax_rate?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company_address?: string | null
+          company_email?: string | null
+          company_gst?: string | null
+          company_name?: string | null
+          company_phone?: string | null
+          created_at?: string
+          currency?: string
+          gst_rate?: number
+          id?: string
+          invoice_prefix?: string
+          tax_rate?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           address: string | null
