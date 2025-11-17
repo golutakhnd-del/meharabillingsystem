@@ -53,7 +53,12 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
             <ScanLine className="h-6 w-6 text-primary" />
             <h2 className="text-xl font-semibold">Scan Barcode</h2>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose}>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={onClose}
+            aria-label="Close barcode scanner"
+          >
             <X className="h-6 w-6" />
           </Button>
         </div>

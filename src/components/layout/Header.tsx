@@ -50,7 +50,12 @@ export default function Header({ onSearch }: HeaderProps) {
               {user.email}
             </div>
           )}
-          <Button variant="ghost" size="icon" onClick={handleSignOut} title="Sign Out">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={handleSignOut} 
+            aria-label="Sign out of your account"
+          >
             <LogOut className="w-5 h-5" />
           </Button>
         </div>

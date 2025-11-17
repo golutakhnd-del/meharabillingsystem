@@ -500,6 +500,7 @@ export default function InvoiceGenerator({ selectedProducts, onClear, onUpdateSt
                   size="icon"
                   onClick={() => updateQuantity(item.product.id, -1)}
                   className="h-8 w-8"
+                  aria-label="Decrease quantity"
                 >
                   <Minus className="w-4 h-4" />
                 </Button>
@@ -509,6 +510,7 @@ export default function InvoiceGenerator({ selectedProducts, onClear, onUpdateSt
                   size="icon"
                   onClick={() => updateQuantity(item.product.id, 1)}
                   className="h-8 w-8"
+                  aria-label="Increase quantity"
                 >
                   <Plus className="w-4 h-4" />
                 </Button>
@@ -520,6 +522,7 @@ export default function InvoiceGenerator({ selectedProducts, onClear, onUpdateSt
                   size="icon"
                   onClick={() => removeItem(item.product.id)}
                   className="h-8 w-8 text-destructive"
+                  aria-label="Remove item from invoice"
                 >
                   <Minus className="w-4 h-4" />
                 </Button>
