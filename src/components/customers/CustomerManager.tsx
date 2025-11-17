@@ -1,7 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, User, Edit, Trash2, Phone, Mail, MapPin } from 'lucide-react';
-import { useSecureLocalStorage } from '@/hooks/useSecureLocalStorage';
-import { useSecureValidation, validators, sanitizers } from '@/lib/security';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,23 +7,37 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { SecureForm } from '@/components/common/SecureForm';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { z } from 'zod';
+
+const customerSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  email: z.string().email("Invalid email address"),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+  gst: z.string().optional(),
+  isPrime: z.boolean().optional(),
+});
 
 interface Customer {
   id: string;
+  user_id: string;
   name: string;
   email: string;
-  phone: string;
-  address: string;
+  phone?: string;
+  address?: string;
   gst?: string;
-  isPrime?: boolean;
+  is_prime?: boolean;
 }
 
 export default function CustomerManager() {
-  const [customers, setCustomers] = useSecureLocalStorage<Customer[]>('saved-customers', [], true);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [isAddingCustomer, setIsAddingCustomer] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-  const { validateAndSanitize } = useSecureValidation();
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -35,40 +47,82 @@ export default function CustomerManager() {
     isPrime: false
   });
 
-  const handleSubmit = (data: any) => {
-    // Validate and sanitize all inputs
-    const nameValidation = validateAndSanitize('name', data.name, validators.name, sanitizers.text);
-    const emailValidation = validateAndSanitize('email', data.email, validators.email, sanitizers.text, 'Please enter a valid email address');
-    const phoneValidation = validateAndSanitize('phone', data.phone, validators.indianPhone, sanitizers.phone, 'Please enter a valid Indian phone number (+91XXXXXXXXXX or 10 digits)');
-    const gstValidation = data.gst ? validateAndSanitize('GST', data.gst, validators.gstNumber, sanitizers.gst, 'Please enter a valid 15-character GST number') : { isValid: true, value: '' };
+  useEffect(() => {
+    if (user) {
+      loadCustomers();
+    }
+  }, [user]);
 
-    if (!nameValidation.isValid || !emailValidation.isValid || !phoneValidation.isValid || !gstValidation.isValid) {
+  const loadCustomers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('customers')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setCustomers(data || []);
+    } catch (error) {
+      console.error('Error loading customers:', error);
+      toast.error('Failed to load customers');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!user) {
+      toast.error('You must be logged in');
       return;
     }
 
-    const sanitizedData = {
-      name: nameValidation.value,
-      email: emailValidation.value,
-      phone: phoneValidation.value,
-      address: sanitizers.text(data.address || ''),
-      gst: gstValidation.value,
-      isPrime: Boolean(data.isPrime)
-    };
+    try {
+      const validated = customerSchema.parse(formData);
 
-    if (editingCustomer) {
-      setCustomers(prev => prev.map(c => 
-        c.id === editingCustomer.id 
-          ? { ...sanitizedData, id: editingCustomer.id }
-          : c
-      ));
-    } else {
-      const newCustomer: Customer = {
-        ...sanitizedData,
-        id: Date.now().toString()
-      };
-      setCustomers(prev => [...prev, newCustomer]);
+      if (editingCustomer) {
+        const { error } = await supabase
+          .from('customers')
+          .update({
+            name: validated.name,
+            email: validated.email,
+            phone: validated.phone || null,
+            address: validated.address || null,
+            gst: validated.gst || null,
+            is_prime: validated.isPrime || false,
+          })
+          .eq('id', editingCustomer.id);
+
+        if (error) throw error;
+        toast.success('Customer updated successfully');
+      } else {
+        const { error } = await supabase
+          .from('customers')
+          .insert({
+            user_id: user.id,
+            name: validated.name,
+            email: validated.email,
+            phone: validated.phone || null,
+            address: validated.address || null,
+            gst: validated.gst || null,
+            is_prime: validated.isPrime || false,
+          });
+
+        if (error) throw error;
+        toast.success('Customer added successfully');
+      }
+
+      resetForm();
+      loadCustomers();
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        toast.error(error.errors[0].message);
+      } else {
+        console.error('Error saving customer:', error);
+        toast.error(error.message || 'Failed to save customer');
+      }
     }
-    resetForm();
   };
 
   const resetForm = () => {
@@ -88,18 +142,36 @@ export default function CustomerManager() {
     setFormData({
       name: customer.name,
       email: customer.email,
-      phone: customer.phone,
-      address: customer.address,
+      phone: customer.phone || '',
+      address: customer.address || '',
       gst: customer.gst || '',
-      isPrime: customer.isPrime || false
+      isPrime: customer.is_prime || false
     });
     setEditingCustomer(customer);
     setIsAddingCustomer(true);
   };
 
-  const handleDelete = (id: string) => {
-    setCustomers(prev => prev.filter(c => c.id !== id));
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this customer?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('customers')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      toast.success('Customer deleted successfully');
+      loadCustomers();
+    } catch (error) {
+      console.error('Error deleting customer:', error);
+      toast.error('Failed to delete customer');
+    }
   };
+
+  if (loading) {
+    return <div className="text-center py-8">Loading customers...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -112,168 +184,156 @@ export default function CustomerManager() {
               Add Customer
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px] glass-card border-white/10">
+          <DialogContent className="glass-card">
             <DialogHeader>
-              <DialogTitle className="gradient-text">
-                {editingCustomer ? 'Edit Customer' : 'Add New Customer'}
-              </DialogTitle>
+              <DialogTitle>{editingCustomer ? 'Edit Customer' : 'Add New Customer'}</DialogTitle>
             </DialogHeader>
-            <SecureForm onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="name">Customer Name</Label>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Name *</Label>
                 <Input
-                  name="name"
                   id="name"
-                  defaultValue={formData.name}
-                  className="bg-surface-glass border-white/10"
-                  placeholder="Enter full name"
-                  maxLength={100}
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
+                  className="bg-surface-glass border-white/10"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    name="email"
-                    id="email"
-                    type="email"
-                    defaultValue={formData.email}
-                    className="bg-surface-glass border-white/10"
-                    placeholder="example@domain.com"
-                    maxLength={254}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input
-                    name="phone"
-                    id="phone"
-                    defaultValue={formData.phone}
-                    className="bg-surface-glass border-white/10"
-                    placeholder="+91 98765 43210"
-                    maxLength={15}
-                    required
-                  />
-                </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="email">Email *</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  required
+                  className="bg-surface-glass border-white/10"
+                />
               </div>
-              <div>
+
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone</Label>
+                <Input
+                  id="phone"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  className="bg-surface-glass border-white/10"
+                />
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="address">Address</Label>
                 <Textarea
-                  name="address"
                   id="address"
-                  defaultValue={formData.address}
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                   className="bg-surface-glass border-white/10"
-                  placeholder="Enter complete address"
-                  maxLength={500}
                   rows={3}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="gst">GST Number (Optional)</Label>
-                  <Input
-                    name="gst"
-                    id="gst"
-                    defaultValue={formData.gst}
-                    className="bg-surface-glass border-white/10"
-                    placeholder="22AAAAA0000A1Z5"
-                    maxLength={15}
-                  />
-                </div>
-                <div className="flex items-center space-x-2 pt-6">
-                  <input
-                    type="checkbox"
-                    name="isPrime"
-                    id="isPrime"
-                    defaultChecked={formData.isPrime}
-                    className="rounded"
-                  />
-                  <Label htmlFor="isPrime">Prime Customer</Label>
-                </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="gst">GST Number</Label>
+                <Input
+                  id="gst"
+                  value={formData.gst}
+                  onChange={(e) => setFormData({ ...formData, gst: e.target.value })}
+                  className="bg-surface-glass border-white/10"
+                />
               </div>
-              <div className="flex space-x-2 pt-4">
+
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="isPrime"
+                  checked={formData.isPrime}
+                  onChange={(e) => setFormData({ ...formData, isPrime: e.target.checked })}
+                  className="rounded border-white/10"
+                />
+                <Label htmlFor="isPrime">Prime Customer</Label>
+              </div>
+
+              <div className="flex gap-2">
                 <Button type="submit" className="flex-1 bg-gradient-primary">
-                  {editingCustomer ? 'Update' : 'Save'} Customer
+                  {editingCustomer ? 'Update' : 'Add'} Customer
                 </Button>
                 <Button type="button" variant="outline" onClick={resetForm}>
                   Cancel
                 </Button>
               </div>
-            </SecureForm>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {customers.map((customer) => (
-          <Card key={customer.id} className="glass-card border-white/10 hover:shadow-elegant transition-all duration-300 transform hover:scale-105">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5 text-primary" />
-                  {customer.name}
+      {customers.length === 0 ? (
+        <Card className="glass-card">
+          <CardContent className="py-12 text-center">
+            <User className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+            <p className="text-muted-foreground">No customers yet. Add your first customer to get started.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {customers.map((customer) => (
+            <Card key={customer.id} className="glass-card hover-glow">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <User className="w-5 h-5" />
+                    {customer.name}
+                  </span>
+                  {customer.is_prime && (
+                    <Badge className="bg-gradient-primary">Prime</Badge>
+                  )}
                 </CardTitle>
-                {customer.isPrime && (
-                  <Badge className="bg-gradient-primary text-white">
-                    Prime
-                  </Badge>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Mail className="h-4 w-4" />
-                {customer.email}
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Phone className="h-4 w-4" />
-                {customer.phone}
-              </div>
-              {customer.address && (
+              </CardHeader>
+              <CardContent className="space-y-2">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <MapPin className="h-4 w-4" />
-                  {customer.address}
+                  <Mail className="w-4 h-4" />
+                  {customer.email}
                 </div>
-              )}
-              {customer.gst && (
-                <div className="text-sm">
-                  <span className="font-medium">GST:</span> {customer.gst}
+                {customer.phone && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Phone className="w-4 h-4" />
+                    {customer.phone}
+                  </div>
+                )}
+                {customer.address && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <MapPin className="w-4 h-4" />
+                    {customer.address}
+                  </div>
+                )}
+                {customer.gst && (
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">GST:</span> {customer.gst}
+                  </div>
+                )}
+                <div className="flex gap-2 mt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => handleEdit(customer)}
+                  >
+                    <Edit className="w-4 w-4 mr-1" />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => handleDelete(customer.id)}
+                  >
+                    <Trash2 className="w-4 h-4 mr-1" />
+                    Delete
+                  </Button>
                 </div>
-              )}
-              <div className="flex space-x-2 pt-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleEdit(customer)}
-                  className="flex-1"
-                >
-                  <Edit className="h-3 w-3 mr-1" />
-                  Edit
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleDelete(customer.id)}
-                  className="flex-1 hover:bg-destructive hover:text-destructive-foreground"
-                >
-                  <Trash2 className="h-3 w-3 mr-1" />
-                  Delete
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {customers.length === 0 && (
-        <div className="text-center py-12">
-          <User className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-xl font-semibold mb-2">No customers found</h3>
-          <p className="text-muted-foreground">
-            Add your first customer to get started
-          </p>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
     </div>
