@@ -1,13 +1,25 @@
-import { Search, Bell, User, Settings } from 'lucide-react';
+import { Search, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Scene3D from '@/components/3d/Scene3D';
+import { useAuth } from '@/hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 interface HeaderProps {
   onSearch?: (query: string) => void;
 }
 
 export default function Header({ onSearch }: HeaderProps) {
+  const { signOut, user } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut();
+    toast.success("Signed out successfully");
+    navigate('/auth');
+  };
+
   return (
     <header className="glass-card p-4 mb-6 border-b border-white/10">
       <div className="flex items-center justify-between">
@@ -33,15 +45,13 @@ export default function Header({ onSearch }: HeaderProps) {
         </div>
 
         <div className="flex items-center space-x-2">
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="w-5 h-5" />
-            <span className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full text-xs"></span>
-          </Button>
-          <Button variant="ghost" size="icon">
-            <Settings className="w-5 h-5" />
-          </Button>
-          <Button variant="ghost" size="icon">
-            <User className="w-5 h-5" />
+          {user && (
+            <div className="text-sm text-muted-foreground mr-2">
+              {user.email}
+            </div>
+          )}
+          <Button variant="ghost" size="icon" onClick={handleSignOut} title="Sign Out">
+            <LogOut className="w-5 h-5" />
           </Button>
         </div>
       </div>
