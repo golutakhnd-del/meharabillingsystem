@@ -138,48 +138,6 @@ export const createRateLimiter = (maxAttempts: number, windowMs: number) => {
   };
 };
 
-// Simple client-side encryption for localStorage (basic obfuscation)
-const ENCRYPTION_KEY = 'lovable-secure-2024'; // In production, this would be more sophisticated
-
-export const dataProtection = {
-  encrypt: (data: any): string => {
-    try {
-      const jsonString = JSON.stringify(data);
-      // Simple XOR encryption for basic obfuscation
-      let encrypted = '';
-      for (let i = 0; i < jsonString.length; i++) {
-        encrypted += String.fromCharCode(
-          jsonString.charCodeAt(i) ^ ENCRYPTION_KEY.charCodeAt(i % ENCRYPTION_KEY.length)
-        );
-      }
-      return btoa(encrypted);
-    } catch (error) {
-      securityLogger.logSuspiciousInput('encryption', 'Failed to encrypt data');
-      return JSON.stringify(data); // Fallback to plain JSON
-    }
-  },
-
-  decrypt: (encryptedData: string): any => {
-    try {
-      const encrypted = atob(encryptedData);
-      let decrypted = '';
-      for (let i = 0; i < encrypted.length; i++) {
-        decrypted += String.fromCharCode(
-          encrypted.charCodeAt(i) ^ ENCRYPTION_KEY.charCodeAt(i % ENCRYPTION_KEY.length)
-        );
-      }
-      return JSON.parse(decrypted);
-    } catch (error) {
-      securityLogger.logSuspiciousInput('decryption', 'Failed to decrypt data');
-      try {
-        return JSON.parse(encryptedData); // Fallback for unencrypted data
-      } catch {
-        return null;
-      }
-    }
-  }
-};
-
 // Validation hook with security logging
 export const useSecureValidation = () => {
   const { toast } = useToast();
