@@ -68,28 +68,34 @@ export const sanitizers = {
 // Security event logging
 export const securityLogger = {
   logValidationFailure: (field: string, value: string, reason: string) => {
-    console.warn(`Security: Validation failed for ${field}`, {
-      field,
-      valueLength: value?.length || 0,
-      reason,
-      timestamp: new Date().toISOString()
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`Security: Validation failed for ${field}`, {
+        field,
+        valueLength: value?.length || 0,
+        reason,
+        timestamp: new Date().toISOString()
+      });
+    }
   },
 
   logSuspiciousInput: (field: string, value: string) => {
-    console.warn(`Security: Suspicious input detected in ${field}`, {
-      field,
-      valueLength: value?.length || 0,
-      timestamp: new Date().toISOString()
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`Security: Suspicious input detected in ${field}`, {
+        field,
+        valueLength: value?.length || 0,
+        timestamp: new Date().toISOString()
+      });
+    }
   },
 
   logDataAccess: (operation: string, dataType: string) => {
-    console.info(`Security: Data access - ${operation}`, {
-      operation,
-      dataType,
-      timestamp: new Date().toISOString()
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.info(`Security: Data access - ${operation}`, {
+        operation,
+        dataType,
+        timestamp: new Date().toISOString()
+      });
+    }
   }
 };
 
