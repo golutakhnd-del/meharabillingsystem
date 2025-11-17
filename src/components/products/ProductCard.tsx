@@ -50,6 +50,7 @@ export default function ProductCard({
               size="icon"
               onClick={() => onEdit(product)}
               className="h-8 w-8"
+              aria-label="Edit product"
             >
               <Edit className="w-4 h-4" />
             </Button>
@@ -58,6 +59,7 @@ export default function ProductCard({
               size="icon"
               onClick={() => onDelete(product.id)}
               className="h-8 w-8 text-destructive hover:text-destructive"
+              aria-label="Delete product"
             >
               <Trash2 className="w-4 h-4" />
             </Button>

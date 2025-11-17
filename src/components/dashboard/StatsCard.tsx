@@ -26,7 +26,7 @@ export default function StatsCard({
           <div className="flex-1">
             <p className="text-muted-foreground text-sm font-medium">{title}</p>
             <div className="flex items-baseline space-x-2 mt-2">
-              <h3 className="text-2xl font-bold text-foreground">{value}</h3>
+              <div className="text-2xl font-bold text-foreground">{value}</div>
               {trend && (
                 <span className={`text-sm font-medium ${
                   trend.positive ? 'text-green-400' : 'text-red-400'

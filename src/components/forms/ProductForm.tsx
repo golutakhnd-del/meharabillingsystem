@@ -90,6 +90,7 @@ export default function ProductForm({ product, onSave, onCancel }: ProductFormPr
                     size="icon"
                     onClick={() => setShowScanner(true)}
                     className="shrink-0"
+                    aria-label="Scan barcode"
                   >
                     <ScanLine className="h-4 w-4" />
                   </Button>

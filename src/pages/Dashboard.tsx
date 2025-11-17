@@ -242,7 +242,7 @@ export default function Dashboard() {
           <Scene3D enableControls={true} />
         </div>
         
-        <div className="relative z-10 container mx-auto px-4 py-6">
+        <main className="relative z-10 container mx-auto px-4 py-6">
           <Header onSearch={setSearchQuery} />
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -403,7 +403,7 @@ export default function Dashboard() {
               </div>
             </TabsContent>
           </Tabs>
-        </div>
+        </main>
       </div>
     </div>
   );
