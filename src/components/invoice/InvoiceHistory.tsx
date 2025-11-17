@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { History, Download, Eye, Trash2, Calendar, User, DollarSign } from 'lucide-react';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { History, Eye, Trash2, Calendar, User, DollarSign } from 'lucide-react';
+import { useInvoices, InvoiceRecord } from '@/hooks/useInvoices';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,21 +30,39 @@ interface InvoiceHistoryProps {
 }
 
 export default function InvoiceHistory({ onViewInvoice }: InvoiceHistoryProps) {
-  const [invoiceHistory, setInvoiceHistory] = useLocalStorage<InvoiceHistoryRecord[]>('yugfmsereg-invoice-history', []);
-  const [selectedInvoice, setSelectedInvoice] = useState<InvoiceHistoryRecord | null>(null);
+  const { invoices, loading, deleteInvoice } = useInvoices();
+  const [selectedInvoice, setSelectedInvoice] = useState<InvoiceRecord | null>(null);
 
   const handleDeleteInvoice = (invoiceId: string) => {
-    setInvoiceHistory(prev => prev.filter(invoice => invoice.id !== invoiceId));
+    deleteInvoice(invoiceId);
   };
 
-  const handleViewDetails = (invoice: InvoiceHistoryRecord) => {
+  const handleViewDetails = (invoice: InvoiceRecord) => {
     setSelectedInvoice(invoice);
-    onViewInvoice?.(invoice);
+    // Convert to legacy format if needed
+    const legacyInvoice: InvoiceHistoryRecord = {
+      id: invoice.id,
+      invoiceNumber: invoice.invoice_number,
+      customerName: invoice.customer_name,
+      customerEmail: invoice.customer_email || '',
+      date: invoice.created_at,
+      total: Number(invoice.total),
+      currency: '₹',
+      items: invoice.items,
+      companyName: invoice.company_name || '',
+      gstAmount: Number(invoice.gst_amount),
+      subtotal: Number(invoice.subtotal),
+    };
+    onViewInvoice?.(legacyInvoice);
   };
 
-  const formatCurrency = (amount: number, currency: string) => {
-    return `${currency}${amount.toLocaleString()}`;
+  const formatCurrency = (amount: number, currency: string = '₹') => {
+    return `${currency}${Number(amount).toLocaleString()}`;
   };
+
+  if (loading) {
+    return <div className="text-center py-8">Loading invoices...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -54,11 +72,11 @@ export default function InvoiceHistory({ onViewInvoice }: InvoiceHistoryProps) {
           Invoice History
         </h2>
         <Badge variant="secondary" className="text-sm">
-          {invoiceHistory.length} Invoices
+          {invoices.length} Invoices
         </Badge>
       </div>
 
-      {invoiceHistory.length === 0 ? (
+      {invoices.length === 0 ? (
         <div className="text-center py-12">
           <History className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-xl font-semibold mb-2">No invoices yet</h3>
@@ -68,35 +86,35 @@ export default function InvoiceHistory({ onViewInvoice }: InvoiceHistoryProps) {
         </div>
       ) : (
         <div className="grid gap-4">
-          {invoiceHistory.map((invoice) => (
+          {invoices.map((invoice) => (
             <Card key={invoice.id} className="glass-card border-white/10 hover:shadow-elegant transition-all duration-300">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div className="space-y-2">
                     <div className="flex items-center gap-3">
-                      <h3 className="font-semibold text-lg">{invoice.invoiceNumber}</h3>
+                      <h3 className="font-semibold text-lg">{invoice.invoice_number}</h3>
                       <Badge variant="outline" className="text-xs">
-                        {new Date(invoice.date).toLocaleDateString()}
+                        {new Date(invoice.created_at).toLocaleDateString()}
                       </Badge>
                     </div>
                     
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <User className="w-4 h-4" />
-                        {invoice.customerName}
+                        {invoice.customer_name}
                       </div>
                       <div className="flex items-center gap-1">
                         <DollarSign className="w-4 h-4" />
-                        {formatCurrency(invoice.total, invoice.currency)}
+                        {formatCurrency(Number(invoice.total))}
                       </div>
                       <div className="flex items-center gap-1">
                         <Calendar className="w-4 h-4" />
-                        {invoice.items.length} items
+                        {invoice.items?.length || 0} items
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex gap-2">
                     <Dialog>
                       <DialogTrigger asChild>
                         <Button 
@@ -110,73 +128,94 @@ export default function InvoiceHistory({ onViewInvoice }: InvoiceHistoryProps) {
                       </DialogTrigger>
                       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                         <DialogHeader>
-                          <DialogTitle>Invoice Details - {invoice.invoiceNumber}</DialogTitle>
+                          <DialogTitle className="gradient-text">
+                            Invoice Details - {selectedInvoice?.invoice_number}
+                          </DialogTitle>
                         </DialogHeader>
-                        <div className="space-y-4">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <h4 className="font-semibold">Customer Details</h4>
-                              <p className="text-sm text-muted-foreground">{invoice.customerName}</p>
-                              <p className="text-sm text-muted-foreground">{invoice.customerEmail}</p>
-                            </div>
-                            <div>
-                              <h4 className="font-semibold">Invoice Info</h4>
-                              <p className="text-sm text-muted-foreground">Date: {new Date(invoice.date).toLocaleDateString()}</p>
-                              <p className="text-sm text-muted-foreground">Company: {invoice.companyName}</p>
-                            </div>
-                          </div>
-                          
-                          <div>
-                            <h4 className="font-semibold mb-2">Items</h4>
+                        
+                        {selectedInvoice && (
+                          <div className="space-y-6">
+                            {/* Company Details */}
                             <div className="space-y-2">
-                              {invoice.items.map((item, index) => (
-                                <div key={index} className="flex justify-between items-center p-2 bg-muted/50 rounded">
-                                  <span className="text-sm">{item.name}</span>
-                                  <span className="text-sm">
-                                    {item.quantity} × {formatCurrency(item.price, invoice.currency)} = {formatCurrency(item.quantity * item.price, invoice.currency)}
-                                  </span>
-                                </div>
-                              ))}
+                              <h3 className="font-semibold text-sm text-muted-foreground">Company</h3>
+                              <div className="text-sm space-y-1">
+                                <p className="font-medium">{selectedInvoice.company_name}</p>
+                                {selectedInvoice.company_email && <p>{selectedInvoice.company_email}</p>}
+                                {selectedInvoice.company_phone && <p>{selectedInvoice.company_phone}</p>}
+                                {selectedInvoice.company_address && <p>{selectedInvoice.company_address}</p>}
+                                {selectedInvoice.company_gst && <p>GST: {selectedInvoice.company_gst}</p>}
+                              </div>
+                            </div>
+
+                            {/* Customer Details */}
+                            <div className="space-y-2">
+                              <h3 className="font-semibold text-sm text-muted-foreground">Customer</h3>
+                              <div className="text-sm space-y-1">
+                                <p className="font-medium">{selectedInvoice.customer_name}</p>
+                                {selectedInvoice.customer_email && <p>{selectedInvoice.customer_email}</p>}
+                                {selectedInvoice.customer_phone && <p>{selectedInvoice.customer_phone}</p>}
+                                {selectedInvoice.customer_address && <p>{selectedInvoice.customer_address}</p>}
+                              </div>
+                            </div>
+
+                            {/* Items */}
+                            <div className="space-y-3">
+                              <h3 className="font-semibold text-sm text-muted-foreground">Items</h3>
+                              <div className="space-y-2">
+                                {selectedInvoice.items?.map((item: any, index: number) => (
+                                  <div key={index} className="flex justify-between items-center p-3 rounded-lg bg-secondary/50">
+                                    <div>
+                                      <p className="font-medium">{item.name}</p>
+                                      <p className="text-sm text-muted-foreground">
+                                        Quantity: {item.quantity} × {formatCurrency(item.price)}
+                                      </p>
+                                    </div>
+                                    <p className="font-semibold">
+                                      {formatCurrency(item.quantity * item.price)}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Totals */}
+                            <div className="space-y-2 pt-4 border-t">
+                              <div className="flex justify-between text-sm">
+                                <span>Subtotal:</span>
+                                <span>{formatCurrency(Number(selectedInvoice.subtotal))}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span>GST:</span>
+                                <span>{formatCurrency(Number(selectedInvoice.gst_amount))}</span>
+                              </div>
+                              <div className="flex justify-between text-lg font-bold pt-2">
+                                <span>Total:</span>
+                                <span className="gradient-text">{formatCurrency(Number(selectedInvoice.total))}</span>
+                              </div>
                             </div>
                           </div>
-                          
-                          <div className="space-y-1 pt-2 border-t">
-                            <div className="flex justify-between text-sm">
-                              <span>Subtotal:</span>
-                              <span>{formatCurrency(invoice.subtotal, invoice.currency)}</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span>GST:</span>
-                              <span>{formatCurrency(invoice.gstAmount, invoice.currency)}</span>
-                            </div>
-                            <div className="flex justify-between font-semibold">
-                              <span>Total:</span>
-                              <span>{formatCurrency(invoice.total, invoice.currency)}</span>
-                            </div>
-                          </div>
-                        </div>
+                        )}
                       </DialogContent>
                     </Dialog>
 
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
-                          <Trash2 className="w-4 h-4" />
+                        <Button variant="outline" size="sm">
+                          <Trash2 className="w-4 h-4 mr-1" />
+                          Delete
                         </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
                           <AlertDialogTitle>Delete Invoice</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Are you sure you want to delete invoice {invoice.invoiceNumber}? This action cannot be undone.
+                            Are you sure you want to delete invoice {invoice.invoice_number}? 
+                            This action cannot be undone.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction 
-                            onClick={() => handleDeleteInvoice(invoice.id)}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          >
+                          <AlertDialogAction onClick={() => handleDeleteInvoice(invoice.id)}>
                             Delete
                           </AlertDialogAction>
                         </AlertDialogFooter>
