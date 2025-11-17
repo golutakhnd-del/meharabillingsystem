@@ -26,24 +26,27 @@ export default function Auth() {
     setLoading(true);
 
     try {
-      const validated = z.object({ email: z.string().email() }).parse({ email });
+      const validated = z.object({ 
+        email: z.string().email("Please enter a valid email address") 
+      }).parse({ email });
       
       const { error } = await supabase.auth.resetPasswordForEmail(validated.email, {
-        redirectTo: `${window.location.origin}/auth`,
+        redirectTo: `${window.location.origin}/`,
       });
 
       if (error) {
-        toast.error(error.message);
+        toast.error("Failed to send reset email: " + error.message);
         return;
       }
 
-      toast.success("Password reset email sent! Check your inbox.");
+      toast.success("Password reset email sent! Check your inbox and spam folder.");
+      setEmail("");
       setIsForgotPassword(false);
     } catch (error) {
       if (error instanceof z.ZodError) {
         toast.error(error.errors[0].message);
       } else {
-        toast.error("An unexpected error occurred");
+        toast.error("Failed to send reset email. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -77,7 +80,7 @@ export default function Auth() {
       } else {
         const redirectUrl = `${window.location.origin}/`;
         
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email: validated.email,
           password: validated.password,
           options: {
@@ -86,16 +89,23 @@ export default function Auth() {
         });
 
         if (error) {
-          if (error.message.includes("already registered")) {
+          if (error.message.includes("already registered") || error.message.includes("User already registered")) {
             toast.error("This email is already registered. Please login instead.");
+            setIsLogin(true);
+          } else if (error.message.includes("Password")) {
+            toast.error("Password must be at least 6 characters long.");
           } else {
-            toast.error(error.message);
+            toast.error("Failed to create account: " + error.message);
           }
           return;
         }
 
-        toast.success("Account created! You can now login.");
-        setIsLogin(true);
+        if (data.user) {
+          toast.success("Account created successfully! You can now login.");
+          setEmail("");
+          setPassword("");
+          setIsLogin(true);
+        }
       }
     } catch (error) {
       if (error instanceof z.ZodError) {
