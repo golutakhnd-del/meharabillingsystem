@@ -358,12 +358,28 @@ export default function Auth() {
                   type="button"
                   variant="outline"
                   className="w-full mt-2"
-                  onClick={() => {
-                    setEmail("admin@mehar.com");
-                    setPassword("Admin@123");
+                  disabled={loading}
+                  onClick={async () => {
+                    setLoading(true);
+                    try {
+                      const { error } = await supabase.auth.signInWithPassword({
+                        email: "admin@mehar.com",
+                        password: "Admin@123",
+                      });
+                      if (error) {
+                        toast.error("Demo login failed: " + error.message);
+                      } else {
+                        toast.success("Demo login successful!");
+                        navigate("/");
+                      }
+                    } catch (err) {
+                      toast.error("Demo login failed. Please try again.");
+                    } finally {
+                      setLoading(false);
+                    }
                   }}
                 >
-                  Use Demo Credentials
+                  {loading ? "Logging in..." : "🚀 Demo Login"}
                 </Button>
               )}
             </form>
