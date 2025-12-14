@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { toast } from "sonner";
 import { z } from "zod";
+import { enableDemoMode } from "@/components/layout/ProtectedRoute";
 
 const authSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -380,6 +381,20 @@ export default function Auth() {
                   }}
                 >
                   {loading ? "Logging in..." : "🚀 Demo Login"}
+                </Button>
+              )}
+              {isLogin && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full mt-2"
+                  onClick={() => {
+                    enableDemoMode();
+                    toast.success("Demo mode enabled! Exploring without login...");
+                    navigate("/");
+                  }}
+                >
+                  👁️ View Demo (No Login)
                 </Button>
               )}
             </form>

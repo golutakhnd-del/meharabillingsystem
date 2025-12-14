@@ -1,16 +1,31 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+
+export const DEMO_MODE_KEY = 'demo_mode_enabled';
+
+export function isDemoMode(): boolean {
+  return localStorage.getItem(DEMO_MODE_KEY) === 'true';
+}
+
+export function enableDemoMode(): void {
+  localStorage.setItem(DEMO_MODE_KEY, 'true');
+}
+
+export function disableDemoMode(): void {
+  localStorage.removeItem(DEMO_MODE_KEY);
+}
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const [demoMode, setDemoMode] = useState(isDemoMode());
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!loading && !user && !demoMode) {
       navigate('/auth');
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, demoMode]);
 
   if (loading) {
     return (
@@ -20,7 +35,8 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user) {
+  // Allow access if user is logged in OR demo mode is enabled
+  if (!user && !demoMode) {
     return null;
   }
 
