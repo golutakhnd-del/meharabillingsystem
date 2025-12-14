@@ -204,10 +204,10 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-background safe-area-inset">
+      <Card className="w-full max-w-md mx-auto shadow-lg">
+        <CardHeader className="text-center space-y-2 pb-4">
+          <CardTitle className="text-xl sm:text-2xl font-bold">
             {isForgotPassword ? "Reset Password" : isLogin ? "Welcome Back" : "Create Account"}
           </CardTitle>
           <CardDescription>
