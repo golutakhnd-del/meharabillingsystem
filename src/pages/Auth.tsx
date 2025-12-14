@@ -353,6 +353,19 @@ export default function Auth() {
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? "Loading..." : isLogin ? "Sign In" : "Sign Up"}
               </Button>
+              {isLogin && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full mt-2"
+                  onClick={() => {
+                    setEmail("admin@mehar.com");
+                    setPassword("Admin@123");
+                  }}
+                >
+                  Use Demo Credentials
+                </Button>
+              )}
             </form>
           )}
           {!isForgotPassword && (
