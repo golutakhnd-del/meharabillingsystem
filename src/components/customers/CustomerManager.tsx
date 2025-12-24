@@ -10,7 +10,17 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { isDemoMode } from '@/components/layout/ProtectedRoute';
 import { z } from 'zod';
+
+// Demo sample customers
+const DEMO_CUSTOMERS: Customer[] = [
+  { id: 'demo-c1', user_id: 'demo', name: 'Rahul Sharma', email: 'rahul@example.com', phone: '+91 98765 43210', address: '123 MG Road, Mumbai', gst: '27AABCU9603R1ZM', is_prime: true },
+  { id: 'demo-c2', user_id: 'demo', name: 'Priya Patel', email: 'priya@example.com', phone: '+91 87654 32109', address: '456 Brigade Road, Bangalore', gst: '29AABCU9603R1ZN', is_prime: false },
+  { id: 'demo-c3', user_id: 'demo', name: 'Amit Kumar', email: 'amit@example.com', phone: '+91 76543 21098', address: '789 Park Street, Kolkata', is_prime: true },
+  { id: 'demo-c4', user_id: 'demo', name: 'Sneha Gupta', email: 'sneha@example.com', phone: '+91 65432 10987', address: '321 Connaught Place, Delhi', is_prime: false },
+  { id: 'demo-c5', user_id: 'demo', name: 'Vikram Singh', email: 'vikram@example.com', phone: '+91 54321 09876', address: '654 Anna Salai, Chennai', gst: '33AABCU9603R1ZP', is_prime: true },
+];
 
 const customerSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -38,6 +48,7 @@ export default function CustomerManager() {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  const demoMode = isDemoMode();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -48,10 +59,15 @@ export default function CustomerManager() {
   });
 
   useEffect(() => {
+    if (demoMode) {
+      setCustomers(DEMO_CUSTOMERS);
+      setLoading(false);
+      return;
+    }
     if (user) {
       loadCustomers();
     }
-  }, [user]);
+  }, [user, demoMode]);
 
   const loadCustomers = async () => {
     try {
@@ -72,6 +88,40 @@ export default function CustomerManager() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Demo mode - update local state only
+    if (demoMode) {
+      try {
+        const validated = customerSchema.parse(formData);
+        if (editingCustomer) {
+          setCustomers(prev => prev.map(c => 
+            c.id === editingCustomer.id 
+              ? { ...c, name: validated.name, email: validated.email, phone: validated.phone, address: validated.address, gst: validated.gst, is_prime: validated.isPrime }
+              : c
+          ));
+          toast.success('Customer updated (Demo Mode)');
+        } else {
+          const newCustomer: Customer = {
+            id: `demo-c${Date.now()}`,
+            user_id: 'demo',
+            name: validated.name,
+            email: validated.email,
+            phone: validated.phone,
+            address: validated.address,
+            gst: validated.gst,
+            is_prime: validated.isPrime,
+          };
+          setCustomers(prev => [...prev, newCustomer]);
+          toast.success('Customer added (Demo Mode)');
+        }
+        resetForm();
+      } catch (error: any) {
+        if (error instanceof z.ZodError) {
+          toast.error(error.errors[0].message);
+        }
+      }
+      return;
+    }
 
     if (!user) {
       toast.error('You must be logged in');
@@ -153,6 +203,13 @@ export default function CustomerManager() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this customer?')) return;
+
+    // Demo mode - update local state only
+    if (demoMode) {
+      setCustomers(prev => prev.filter(c => c.id !== id));
+      toast.success('Customer deleted (Demo Mode)');
+      return;
+    }
 
     try {
       const { error } = await supabase
