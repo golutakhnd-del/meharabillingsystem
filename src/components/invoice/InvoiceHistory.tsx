@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { History, Eye, Trash2, Calendar, User, DollarSign } from 'lucide-react';
 import { useInvoices, InvoiceRecord } from '@/hooks/useInvoices';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,6 +6,73 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { isDemoMode } from '@/components/layout/ProtectedRoute';
+import { toast } from 'sonner';
+
+// Demo sample invoices
+const DEMO_INVOICES: InvoiceRecord[] = [
+  {
+    id: 'demo-inv-1',
+    invoice_number: 'INV-2024-001',
+    customer_name: 'Rahul Sharma',
+    customer_email: 'rahul@example.com',
+    customer_phone: '+91 98765 43210',
+    customer_address: '123 MG Road, Mumbai',
+    created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    total: 94999,
+    gst_amount: 14491,
+    subtotal: 80508,
+    items: [
+      { name: 'Samsung Galaxy S24', quantity: 1, price: 79999 },
+      { name: 'Screen Protector', quantity: 2, price: 499 },
+    ],
+    company_name: 'Mehar Electronics',
+    company_email: 'sales@mehar.com',
+    company_phone: '+91 12345 67890',
+    company_address: '100 Tech Park, Bangalore',
+    company_gst: '29AABCU9603R1ZM',
+  },
+  {
+    id: 'demo-inv-2',
+    invoice_number: 'INV-2024-002',
+    customer_name: 'Priya Patel',
+    customer_email: 'priya@example.com',
+    customer_phone: '+91 87654 32109',
+    customer_address: '456 Brigade Road, Bangalore',
+    created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    total: 159180,
+    gst_amount: 24284,
+    subtotal: 134896,
+    items: [
+      { name: 'iPhone 15 Pro', quantity: 1, price: 134900 },
+    ],
+    company_name: 'Mehar Electronics',
+    company_email: 'sales@mehar.com',
+    company_phone: '+91 12345 67890',
+    company_address: '100 Tech Park, Bangalore',
+    company_gst: '29AABCU9603R1ZM',
+  },
+  {
+    id: 'demo-inv-3',
+    invoice_number: 'INV-2024-003',
+    customer_name: 'Amit Kumar',
+    customer_email: 'amit@example.com',
+    customer_phone: '+91 76543 21098',
+    customer_address: '789 Park Street, Kolkata',
+    created_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+    total: 35388,
+    gst_amount: 5398,
+    subtotal: 29990,
+    items: [
+      { name: 'Sony WH-1000XM5', quantity: 1, price: 29990 },
+    ],
+    company_name: 'Mehar Electronics',
+    company_email: 'sales@mehar.com',
+    company_phone: '+91 12345 67890',
+    company_address: '100 Tech Park, Bangalore',
+    company_gst: '29AABCU9603R1ZM',
+  },
+];
 
 export interface InvoiceHistoryRecord {
   id: string;
@@ -30,10 +97,20 @@ interface InvoiceHistoryProps {
 }
 
 export default function InvoiceHistory({ onViewInvoice }: InvoiceHistoryProps) {
-  const { invoices, loading, deleteInvoice } = useInvoices();
+  const { invoices: dbInvoices, loading: dbLoading, deleteInvoice } = useInvoices();
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceRecord | null>(null);
+  const [demoInvoices, setDemoInvoices] = useState<InvoiceRecord[]>(DEMO_INVOICES);
+  const demoMode = isDemoMode();
+  
+  const invoices = demoMode ? demoInvoices : dbInvoices;
+  const loading = demoMode ? false : dbLoading;
 
   const handleDeleteInvoice = (invoiceId: string) => {
+    if (demoMode) {
+      setDemoInvoices(prev => prev.filter(inv => inv.id !== invoiceId));
+      toast.success('Invoice deleted (Demo Mode)');
+      return;
+    }
     deleteInvoice(invoiceId);
   };
 
